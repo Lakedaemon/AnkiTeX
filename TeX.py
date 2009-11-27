@@ -262,3 +262,5 @@ def updateCard(self):
 
 ui.facteditor.PreviewDialog.updateCard=updateCard  
 
+from ankiqt import mw
+mw.registerPlugin("TeX for Anki", 6666)

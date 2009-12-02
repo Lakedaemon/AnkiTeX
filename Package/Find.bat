@@ -1,0 +1,1 @@
+@for %%i in (%1) do @if NOT "%%~$PATH:i"=="" echo %%~$PATH:i

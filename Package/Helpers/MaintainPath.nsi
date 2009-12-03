@@ -6,7 +6,7 @@
 !insertmacro GetOptions
 
 Name "MaintainPath" ; The name of the installer
-OutFile Helpers\MaintainPath.exe ; The file to write
+OutFile "MaintainPath.exe" ; The file to write
 InstallDir $Temp ; The default installation directory
 
 ShowInstDetails show

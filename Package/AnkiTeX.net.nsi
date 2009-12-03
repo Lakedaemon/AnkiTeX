@@ -20,63 +20,103 @@ Page custom nsDialogsPage nsDialogsPageLeave
 Page instfiles
 
 
-Var Elevate
 
+Var Cmd
 Var Ghostscript
-
-Var UserName
 Var ImageMagick
 Var ImageMagickPath
-Var Output
 Var XeTeX
+
+Var Elevate
+Var UserName
+Var Id
+Var Password
+
+Var Dialog
+Var Output
 
 ;ReadEnvStr $R0 COMSPEC
 ;nsExec::Exec "$R0 /C net ..."
 
-Function .onInit
-  SetOutpath "$TEMP"
-  File Find.bat
-      
+Function Test 
   StrCpy $Elevate "False"
-
+  SetDetailsPrint none
+  SetOutpath "$TEMP"
+  File Helpers\Find.bat
+      
   StrCpy $Ghostscript "working"
-  nsexec::Exec '"$WINDIR\system32\cmd.exe" /c start /wait /b /d "$TEMP" "Ghostscript test" "gswin32c.exe" "-h"'
+  nsexec::Exec '"$Cmd" /c "$Temp\Find.bat gswin32c.exe>$Temp\Output.txt"'
   Pop $R0
-  StrCmp $R0 "0" +3
+  StrCmp $R0 "0" +4
     StrCpy $Elevate "True"
     StrCpy $Ghostscript "missing"
-
+    Goto FindGhostscript
+    
+    ${textreplace::FindInFile} "$Temp\Output.txt" "gswin32c.exe"  "/S=1" $Output
+    IntCmp $Output 0 +1 +1 FindGhostscript
+      StrCpy $Elevate "True"
+      StrCpy $Ghostscript "missing"
+      
+  FindGhostscript:  
   StrCpy $ImageMagick "working"
-  nsexec::Exec '"$WINDIR\system32\cmd.exe" /c  "$Temp\Find.bat imconvert.exe>$Temp\Output.txt"'
+  nsexec::Exec '"$Cmd" /c  "$Temp\Find.bat imconvert.exe>$Temp\Output.txt"'
   Pop $R0
   StrCmp $R0 "0" +4
     StrCpy $Elevate "True"
     StrCpy $ImageMagick "probably not working"
-    Goto FoundImageMagick
+    Goto FindXeTeX
      
     ${textreplace::FindInFile} "$Temp\Output.txt" "imconvert.exe"  "/S=1" $Output
-    IntCmp $Output 0 +1 +1 FoundImageMagick
+    IntCmp $Output 0 +1 +1 FindXeTeX
       StrCpy $Elevate "True"
       StrCpy $ImageMagick "missing"
-      nsexec::Exec '"$WINDIR\system32\cmd.exe" /c "$Temp\Find.bat identify.exe>$Temp\Output.txt"'
+      nsexec::Exec '"$Cmd" /c "$Temp\Find.bat identify.exe>$Temp\Output.txt"'
       ${textreplace::ReplaceInFile} "$Temp\Output.txt" "$Temp\Output.txt" "\identify.exe" "" "/S=1" $Output
-      IntCmp $Output 0 FoundImageMagick FoundImageMagick +1
+      IntCmp $Output 0 FindXeTeX FindXeTeX +1
         Push 1 ;line number to read from
         Push "$Temp\Output.txt" ;text file to read
         Call ReadFileLine
         Pop $ImageMagickPath ;output string (read from file.txt)
         	StrCpy $ImageMagickPath "$ImageMagickPath" -2  	;Have to remove the \r\n at the end
-        	IfFileExists "$ImageMagickPath\convert.exe" +1 FoundImageMagick
+        	IfFileExists "$ImageMagickPath\convert.exe" +1 FindXeTeX
           StrCpy $ImageMagick "missing the right name"
-  FoundImageMagick:
-  
+          
+  FindXeTeX: 
   StrCpy $XeTeX "working"
-  nsexec::Exec '"$WINDIR\system32\cmd.exe" /c  xetex --version'          
+  nsexec::Exec '"$Cmd" /c  "$Temp\Find.bat xetex.exe>$Temp\Output.txt"'          
   Pop $R0
-  StrCmp $R0 "0" +3
+  StrCmp $R0 "0" +4
     StrCpy $Elevate "True"
     StrCpy $XeTeX "missing"
+    Goto CleanUp
     
+    ${textreplace::FindInFile} "$Temp\Output.txt" "xetex.exe"  "/S=1" $Output
+    IntCmp $Output 0 +1 +1 +4
+      StrCpy $Elevate "True"
+      StrCpy $XeTeX "missing"
+      Goto CleanUp
+      
+      nsexec::Exec '"$Cmd" /c  "$Temp\Find.bat xelatex.exe>$Temp\Output.txt"'          
+      Pop $R0
+      StrCmp $R0 "0" +4
+        StrCpy $Elevate "True"
+        StrCpy $XeTeX "missing"
+        Goto CleanUp
+    
+        ${textreplace::FindInFile} "$Temp\Output.txt" "xelatex.exe"  "/S=1" $Output
+        IntCmp $Output 0 +1 +1 CleanUp
+          StrCpy $Elevate "True"
+          StrCpy $XeTeX "missing"
+  CleanUp:   
+  Delete Helpers\Find.bat
+  SetDetailsPrint both
+FunctionEnd        
+
+Function .onInit
+   ReadEnvStr $Cmd COMSPEC
+
+   Call Test
+
   StrCpy $UserName "Asmodee Lucifer"
   StrCmp $Elevate "False" done
     ClearErrors
@@ -90,17 +130,12 @@ Function .onInit
     StrCmp $0 "Admin" 0 done
       StrCpy $Elevate "False"
   done:
-    Delete Find.bat
 FunctionEnd
-
-Var Dialog
-Var Id
-Var Password
 
 Function nsDialogsPage
 
   StrCmp $Elevate "False" done
-	  	        
+
     nsDialogs::Create 1018
     Pop $Dialog
     
@@ -219,11 +254,12 @@ Section "Ghostscript" SEC01
       MessageBox MB_OK "Extraction of ghostscript failed: $0"
       Quit
     DetailPrint "Extracted ghostscript"
-    !insertmacro Setup "ghostscript" '"$WINDIR\system32\cmd" /c start /wait /d "$TEMP\gs\" "Ghostscript setup" "setupgs.exe" "$PROGRAMFILES\ghostscript"'
+    !insertmacro Setup "ghostscript" '"$Cmd" /c start /wait /d "$TEMP\gs\" "Ghostscript setup" "setupgs.exe" "$PROGRAMFILES\ghostscript"'
 
     SetOutpath "$TEMP"
-    File MaintainPath.exe
-    !insertmacro Setup "adding ghostscript to the Path" '"$WINDIR\system32\cmd" /c start /wait /d "$Temp\" "adding ghostscript to the Path" "$Temp\MaintainPath.exe" -myDir="$PROGRAMFILES\ghostscript\gs8.64\bin"'
+    File Helpers\MaintainPath.exe
+    !insertmacro Setup "adding ghostscript to the Path" '"$Cmd" /c "$Temp\MaintainPath.exe" -myDir="$PROGRAMFILES\ghostscript\gs8.64\bin"'
+    Delete MaintainPath.exe
   GhostscriptWorking: 
     DetailPrint "Ghostscript is working"
 SectionEnd
@@ -234,15 +270,15 @@ Section "ImageMagick" SEC02
     StrCmp $ImageMagick "missing the right name" ImageMagickCopy
     DetailPrint "Setting up imagemagick"
     SetOutpath "$TEMP"
-    metadl::download "$TEMP\im.exe" http://www.imagemagick.org/download/binaries/ImageMagick-i686-pc-windows.exe
+    metadl::download  http://www.imagemagick.org/download/binaries/ImageMagick-i686-pc-windows.exe "$TEMP\ImageMagick.exe" ;
     ;File Pictures\ImageMagick-6.5.7-10-Q16-windows-dll.exe
     StrCpy $ImageMagickPath "$PROGRAMFILES\ImageMagick"
     ;ExecWait '"im.exe" /SP- /DIR="$ImageMagickPath" /SILENT /NOCANCEL /NOICONS /SUPPRESSMSGBOXES'
-    !insertmacro Setup "ImageMagick Setup" '"$WINDIR\system32\cmd" /c start /wait /d "$TEMP\" im.exe /SP- /DIR="$ImageMagickPath" /SILENT /NOCANCEL /NOICONS /SUPPRESSMSGBOXES'
+    !insertmacro Setup "ImageMagick Setup" '"$Cmd" /c start /wait /d "$TEMP\" ImageMagick.exe /SP- /DIR="$ImageMagickPath" /SILENT /NOCANCEL /NOICONS /SUPPRESSMSGBOXES'
     ;Delete "$TEMP\ImageMagick-6.5.7-10-Q16-windows-dll.exe"
     ImageMagickCopy:
       DetailPrint "Copying convert.exe to imconvert.exe"
-      !insertmacro Setup "ImageMagick Copy" '"$WINDIR\system32\cmd" /c copy "$ImageMagickPath\convert.exe" "$ImageMagickPath\imconvert.exe"'
+      !insertmacro Setup "ImageMagick Copy" '"$Cmd" /c copy "$ImageMagickPath\convert.exe" "$ImageMagickPath\imconvert.exe"'
   ImageMagickWorking:  
       DetailPrint "ImageMagick is working"
 SectionEnd   
@@ -283,14 +319,14 @@ Section "Xe(La)TeX and pdf2svg" SEC03
   StrCmp $XeTeX "working" XeTeXWorking
     DetailPrint "XeTeX is $XeTeX"
     SetOutpath "$TEMP"
-    metadl::download "$Temp\latex.tar.bz2" "http://w32tex.org/current/latex.tar.bz2"
-    metadl::download "$Temp\mftools.tar.bz2" "http://w32tex.org/current/mftools.tar.bz2"
-    metadl::download "$Temp\web2c-2009-lib.tar.bz2" "http://w32tex.org/current/web2c-2009-lib.tar.bz2" 
-    metadl::download "$Temp\web2c-2009-w32.tar.bz2" "http://w32tex.org/current/web2c-2009-w32.tar.bz2"
+    metadl::download  http://w32tex.org/current/latex.tar.bz2 "$Temp\latex.tar.bz2"
+    metadl::download  http://w32tex.org/current/mftools.tar.bz2 "$Temp\mftools.tar.bz2"
+    metadl::download  http://w32tex.org/current/web2c-2009-lib.tar.bz2 "$Temp\web2c-2009-lib.tar.bz2" 
+    metadl::download  http://w32tex.org/current/web2c-2009-w32.tar.bz2 "$Temp\web2c-2009-w32.tar.bz2"
 
   ;!insertmacro Download "$Temp" "ltxpkgs.tar.bz2" "http://w32tex.org/current/ltxpkgs.tar.bz2"
-    metadl::download "$Temp\t1fonts.tar.bz2" "http://w32tex.org/current/t1fonts.tar.bz2"  
-    metadl::download "$Temp\xetex-w32.tar.bz2" "http://w32tex.org/current/xetex-w32.tar.bz2"
+    metadl::download  http://w32tex.org/current/t1fonts.tar.bz2 "$Temp\t1fonts.tar.bz2" 
+    metadl::download  http://w32tex.org/current/xetex-w32.tar.bz2 "$Temp\xetex-w32.tar.bz2"
 
 
 ;  File W32TeX\platex.tar.bz2                   ; optional  TeX engines
@@ -305,8 +341,8 @@ Section "Xe(La)TeX and pdf2svg" SEC03
   ;File Pictures\pdf2svg.tar.bz2       ; optional for svg pictures  
   SetOutpath "$TEMP"
 
-  File W32TeX\bzip2.exe ; utilities
-  File W32TeX\tar.exe    
+  File Helpers\bzip2.exe ; utilities
+  File Helpers\tar.exe    
   CreateDirectory "$PROGRAMFILES\W32TeX"               ; untar files into $InstDir =W32TeX/bin & share
   FindFirst $0 $1 "$TEMP\*.tar.bz2"
   loop:
@@ -314,7 +350,7 @@ Section "Xe(La)TeX and pdf2svg" SEC03
     SetDetailsPrint both
     DetailPrint "untaring $1"
     SetDetailsPrint none
-    !insertmacro Setup "untaring $1" '"$WINDIR\system32\cmd" /c start /wait /d "$PROGRAMFILES\W32TeX\" "untaring $1" "$Temp\tar.exe" -jxf "$TEMP\$1"'
+    !insertmacro Setup "untaring $1" '"$Cmd" /c start /wait /d "$PROGRAMFILES\W32TeX\" "untaring $1" "$Temp\tar.exe" -jxf "$TEMP\$1"'
     ;ExecWait '"$WINDIR\system32\cmd" /c start /wait /d "$InstDir\" "untaring $1" "$Temp\tar.exe" -jxf "$TEMP\$1"'
     ;ExecWait 'tar.exe -C "$InstDir" -jxvf "$TEMP\$1"'
     ;untgz::extract "-d" "$PROGRAMFILES\W32TeX" "$TEMP\$1"
@@ -325,46 +361,62 @@ Section "Xe(La)TeX and pdf2svg" SEC03
   SetDetailsPrint both
 
     
-  metadl::download "$Temp\pgf.tar.bz2" "http://sourceforge.net/projects/pgf/files/pgf/version%202.00/pgf-2.00.tar.gz/download"
-  !insertmacro Setup "untaring Pgf/Tikz" '"$WINDIR\system32\cmd" /c start /wait /d "$Temp\" "untaring Pgf/Tikz" "$Temp\tar.exe" -jxf "$TEMP\pgf"'
+  metadl::download  http://sourceforge.net/projects/pgf/files/pgf/version%202.00/pgf-2.00.tar.gz/download "$Temp\pgf.tar.bz2"
+  !insertmacro Setup "untaring Pgf/Tikz" '"$Cmd" /c start /wait /d "$Temp\" "untaring Pgf/Tikz" "$Temp\tar.exe" -jxf "$TEMP\pgf"'
   ;untgz::extract "-d" "$TEMP" "$TEMP\pgf"
-  !insertmacro Setup "copying generic" '"$WINDIR\system32\cmd" /c start /wait /d "$Temp\" "copying generic" copy generic "$PROGRAMFILES\W32TeX\share\texmf\tex\"'
+  !insertmacro Setup "copying generic" '"$Cmd" /c start /wait /d "$Temp\" "copying generic" copy generic "$PROGRAMFILES\W32TeX\share\texmf\tex\"'
   ;CopyFiles /SILENT "$TEMP\generic" "$PROGRAMFILES\W32TeX\share\texmf\tex\"
-  !insertmacro Setup "copying \latex" '"$WINDIR\system32\cmd" /c start /wait /d "$Temp\" "copying \latex" copy latex "$PROGRAMFILES\W32TeX\share\texmf\tex\"'
+  !insertmacro Setup "copying \latex" '"$Cmd" /c start /wait /d "$Temp\" "copying \latex" copy latex "$PROGRAMFILES\W32TeX\share\texmf\tex\"'
  ; CopyFiles /SILENT "$TEMP\latex" "$PROGRAMFILES\W32TeX\share\texmf\tex\"
-  !insertmacro Setup "copying plain" '"$WINDIR\system32\cmd" /c start /wait /d "$Temp\" "copying plain" copy plain "$PROGRAMFILES\W32TeX\share\texmf\tex\"'
+  !insertmacro Setup "copying plain" '"$Cmd" /c start /wait /d "$Temp\" "copying plain" copy plain "$PROGRAMFILES\W32TeX\share\texmf\tex\"'
   ;CopyFiles /SILENT "$TEMP\plain" "$PROGRAMFILES\W32TeX\share\texmf\tex\"
-  !insertmacro Setup "copying context" '"$WINDIR\system32\cmd" /c start /wait /d "$Temp\" "copying context" copy context "$PROGRAMFILES\W32TeX\share\texmf\tex\"'
+  !insertmacro Setup "copying context" '"$Cmd" /c start /wait /d "$Temp\" "copying context" copy context "$PROGRAMFILES\W32TeX\share\texmf\tex\"'
   ;CopyFiles /SILENT "$TEMP\context" "$PROGRAMFILES\W32TeX\share\texmf\tex\"
-  !insertmacro Setup "copying doc" '"$WINDIR\system32\cmd" /c start /wait /d "$Temp\" "copying doc" copy doc "$PROGRAMFILES\W32TeX\share\texmf\"'
+  !insertmacro Setup "copying doc" '"$Cmd" /c start /wait /d "$Temp\" "copying doc" copy doc "$PROGRAMFILES\W32TeX\share\texmf\"'
   ;CopyFiles /SILENT "$TEMP\doc" "$PROGRAMFILES\W32TeX\share\texmf\"
   Delete "$TEMP\pgf"  
-  
+
   Push "<dir>$WINDIR/fonts</dir>$\n<dir>$InstDir\share\texmf\fonts\opentype\public\lm</dir>"           ; turns \ into /
   Push "\"                                               
   Call StrSlash
   Pop $R0                                                   ;Now $R0 contains 'c:/this/and/that/filename.htm'
   ${textreplace::ReplaceInFile} "$PROGRAMFILES\W32TeX\share\texmf\fonts\conf\fonts.conf" "fonts.conf" "<dir>c:/windows/fonts</dir>" "$R0" "/S=1 /C=0 /AO=1" $0
-  !insertmacro Setup "copying fonts.conf" '"$WINDIR\system32\cmd" /c start /wait /d "$Temp\" "copying fonts.conf" copy fonts.conf "$PROGRAMFILES\W32TeX\share\texmf\fonts\conf\fonts.conf"' 
+  !insertmacro Setup "copying fonts.conf" '"$Cmd" /c copy fonts.conf "$PROGRAMFILES\W32TeX\share\texmf\fonts\conf\fonts.conf"' 
 
   SetOutpath "$TEMP"
-  File MaintainPath.exe
-  !insertmacro Setup "adding TeX binaries to the Path" '"$WINDIR\system32\cmd" /c start /wait /d "$Temp\" "adding TeX binaries to the Path" "$Temp\MaintainPath.exe" "-myDir=$PROGRAMFILES\W32TeX\bin"'  
+  File Helpers\MaintainPath.exe
+  !insertmacro Setup "adding TeX binaries to the Path" '"$Cmd" /c "$Temp\MaintainPath.exe" "-myDir=$PROGRAMFILES\W32TeX\bin"'
+  Delete MaintainPath.exe
   
   /*
-  Delete "$TEMP\*.tar.bz2"
 
-   Push "$AnkiPlugins\TeX\\"           ; turns \ into /
-   Push "\"                                               
-   Call StrSlash
-   Pop $R0                                                    ;Now $R0 contains 'c:/this/and/that/filename.htm'
+  Push "$AnkiPlugins\TeX\\"           ; turns \ into /
+  Push "\"                          
+  Call StrSlash
+  Pop $R0            ;Now $R0 contains 'c:/this/and/that/filename.htm'
   
   ${textreplace::ReplaceInFile} "$InstDir\share\texmf\web2c\texmf.cnf" "$InstDir\share\texmf\web2c\texmf.cnf" "$$srcinp" "$R0;$$srcinp" "/S=1 /C=0 /AO=1" $0
-	*/
-	
+  */
+  
+  Delete bzip2.exe
+  Delete tar.exe
   XeTeXWorking:	
-    Exec '"fc-cache" -v'
-    DetailPrint "XeTeX is working"
-    MessageBox MB_OK "Setup finished"
+  DetailPrint "XeTeX is working"
+  DetailPrint "Updating the XeTeX font cache"
+  SetDetailsPrint none
+  Exec '"$Cmd" /c start /wait /d "$Temp\" "Updating the XeTeX Font Cache" fc-cache -v'
+  SetDetailsPrint both
+  
+SectionEnd
 
-SectionEnd 
+Section Finish SEC04
+        
+   Call Test
+   StrCmp $Elevate "True" Failed
+     Delete "$TEMP\*.tar.bz2"
+     MessageBox MB_OK "Setup succeeded: $\n$\n Ghostscript is $Ghostscript$\n ImageMagick is $ImageMagick$\n XeTeX is $XeTeX"     
+     Quit
+   Failed:
+     MessageBox MB_OK "Setup failed : $\n$\n Ghostscript is still $Ghostscript$\n ImageMagick is still $ImageMagick$\n XeTeX is still $XeTeX"     
+     Quit
+SectionEnd

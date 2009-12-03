@@ -1,10 +1,13 @@
-RequestExecutionLevel User
 !addplugindir Plugins
 !include LogicLib.nsh
 !include nsDialogs.nsh
 !include Sections.nsh
 !include WinMessages.nsh
 !include TextReplace.nsh
+!include Plugins\EnvVarUpdate.nsh
+!include FileFunc.nsh
+!insertmacro GetParameters
+!insertmacro GetOptions
 
 Name "Anki & TeX" ; The name of the installer
 OutFile "AnkiTeX.net.exe" ; The file to write
@@ -155,7 +158,7 @@ Function nsDialogsPage
     Pop $Id
     
     ${NSD_CreateLabel} 70u 97u 30u 12u "Password"
-    Pop $Password
+    Pop $0
     
     ${NSD_CreatePassword} 105u 95u 75u 12u ""
     Pop $Password
@@ -203,15 +206,17 @@ FunctionEnd
   Call Setup
 !macroend
 
+Var Message
 Function Setup
+  StrCpy $Message "$0 setup failed:"
+  Exch $0  ; $0 is the name of the software we setup
+  Exch
+  Exch $1 ; $1 is the command we execute to setup the software
   StrCmp $Elevate "True" elevate
-    Exch $0  ; $0 is the name of the software we setup
-    Exch
-    Exch $1 ; $1 is the command we execute to setup the software
-    nsexec::Exec $1
-    Pop $1
-    StrCmp $1 "0" +3
-      MessageBox MB_OK "$0 setup failed: $1"
+    nsexec::Exec $0
+    Pop $0
+    StrCmp $0 "0" +3
+      MessageBox MB_OK "$Message $0"
       Quit
     Goto done
   elevate:
@@ -227,7 +232,7 @@ Function Setup
     StrCpy $4 0
     System::Call 'RunAs::RunAsW(w r2,w r3,w r1,*w .r4) i .r0 ? u'
     IntCmp $0 1 +3
-      MessageBox MB_OK 'Wrong credentials'
+      MessageBox MB_OK 'Wrong credentials or $Message $0'
       Quit
     Pop $4
     Pop $3
@@ -255,11 +260,7 @@ Section "Ghostscript" SEC01
       Quit
     DetailPrint "Extracted ghostscript"
     !insertmacro Setup "ghostscript" '"$Cmd" /c start /wait /d "$TEMP\gs\" "Ghostscript setup" "setupgs.exe" "$PROGRAMFILES\ghostscript"'
-
-    SetOutpath "$TEMP"
-    File Helpers\MaintainPath.exe
-    !insertmacro Setup "adding ghostscript to the Path" '"$Cmd" /c "$Temp\MaintainPath.exe" -myDir="$PROGRAMFILES\ghostscript\gs8.64\bin"'
-    Delete MaintainPath.exe
+    ${EnvVarUpdate} $0 "PATH" "P" "HKCU" "$PROGRAMFILES\ghostscript\gs8.64\bin"
   GhostscriptWorking: 
     DetailPrint "Ghostscript is working"
 SectionEnd
@@ -334,7 +335,6 @@ Section "Xe(La)TeX and pdf2svg" SEC03
 ;  File W32TeX\pdftex-w32.tar.bz2  
 ;  File W32TeX\luatex-w32.tar.bz2
 ;  File W32TeX\dvitools-w32.tar.bz2                       ; dvipng for (La)TeX
-  
 
   ;File W32TeX\pgf2.0.tar.bz2  ; macros
   
@@ -350,7 +350,7 @@ Section "Xe(La)TeX and pdf2svg" SEC03
     SetDetailsPrint both
     DetailPrint "untaring $1"
     SetDetailsPrint none
-    !insertmacro Setup "untaring $1" '"$Cmd" /c start /wait /d "$PROGRAMFILES\W32TeX\" "untaring $1" "$Temp\tar.exe" -jxf "$TEMP\$1"'
+    !insertmacro Setup "untaring $1" '"$Cmd" /c start /wait /d "$PROGRAMFILES\W32TeX\" "untaring $1" "$Temp\tar.exe" -jxvf "$TEMP\$1"'
     ;ExecWait '"$WINDIR\system32\cmd" /c start /wait /d "$InstDir\" "untaring $1" "$Temp\tar.exe" -jxf "$TEMP\$1"'
     ;ExecWait 'tar.exe -C "$InstDir" -jxvf "$TEMP\$1"'
     ;untgz::extract "-d" "$PROGRAMFILES\W32TeX" "$TEMP\$1"
@@ -364,15 +364,15 @@ Section "Xe(La)TeX and pdf2svg" SEC03
   metadl::download  http://sourceforge.net/projects/pgf/files/pgf/version%202.00/pgf-2.00.tar.gz/download "$Temp\pgf.tar.bz2"
   !insertmacro Setup "untaring Pgf/Tikz" '"$Cmd" /c start /wait /d "$Temp\" "untaring Pgf/Tikz" "$Temp\tar.exe" -jxf "$TEMP\pgf"'
   ;untgz::extract "-d" "$TEMP" "$TEMP\pgf"
-  !insertmacro Setup "copying generic" '"$Cmd" /c start /wait /d "$Temp\" "copying generic" copy generic "$PROGRAMFILES\W32TeX\share\texmf\tex\"'
+  !insertmacro Setup "copying generic" '"$Cmd" /c start /wait /d "$Temp\" "copying generic" xcopy generic "$PROGRAMFILES\W32TeX\share\texmf\tex\" /T /E'
   ;CopyFiles /SILENT "$TEMP\generic" "$PROGRAMFILES\W32TeX\share\texmf\tex\"
-  !insertmacro Setup "copying \latex" '"$Cmd" /c start /wait /d "$Temp\" "copying \latex" copy latex "$PROGRAMFILES\W32TeX\share\texmf\tex\"'
+  !insertmacro Setup "copying \latex" '"$Cmd" /c start /wait /d "$Temp\" "copying \latex" xcopy latex "$PROGRAMFILES\W32TeX\share\texmf\tex\" /T /E'
  ; CopyFiles /SILENT "$TEMP\latex" "$PROGRAMFILES\W32TeX\share\texmf\tex\"
-  !insertmacro Setup "copying plain" '"$Cmd" /c start /wait /d "$Temp\" "copying plain" copy plain "$PROGRAMFILES\W32TeX\share\texmf\tex\"'
+  !insertmacro Setup "copying plain" '"$Cmd" /c start /wait /d "$Temp\" "copying plain" xcopy plain "$PROGRAMFILES\W32TeX\share\texmf\tex\" /T /E'
   ;CopyFiles /SILENT "$TEMP\plain" "$PROGRAMFILES\W32TeX\share\texmf\tex\"
-  !insertmacro Setup "copying context" '"$Cmd" /c start /wait /d "$Temp\" "copying context" copy context "$PROGRAMFILES\W32TeX\share\texmf\tex\"'
+  !insertmacro Setup "copying context" '"$Cmd" /c start /wait /d "$Temp\" "copying context" xcopy context "$PROGRAMFILES\W32TeX\share\texmf\tex\" /T /E'
   ;CopyFiles /SILENT "$TEMP\context" "$PROGRAMFILES\W32TeX\share\texmf\tex\"
-  !insertmacro Setup "copying doc" '"$Cmd" /c start /wait /d "$Temp\" "copying doc" copy doc "$PROGRAMFILES\W32TeX\share\texmf\"'
+  !insertmacro Setup "copying doc" '"$Cmd" /c start /wait /d "$Temp\" "copying doc" xcopy doc "$PROGRAMFILES\W32TeX\share\texmf\" /T /E'
   ;CopyFiles /SILENT "$TEMP\doc" "$PROGRAMFILES\W32TeX\share\texmf\"
   Delete "$TEMP\pgf"  
 
@@ -380,23 +380,18 @@ Section "Xe(La)TeX and pdf2svg" SEC03
   Push "\"                                               
   Call StrSlash
   Pop $R0                                                   ;Now $R0 contains 'c:/this/and/that/filename.htm'
-  ${textreplace::ReplaceInFile} "$PROGRAMFILES\W32TeX\share\texmf\fonts\conf\fonts.conf" "fonts.conf" "<dir>c:/windows/fonts</dir>" "$R0" "/S=1 /C=0 /AO=1" $0
-  !insertmacro Setup "copying fonts.conf" '"$Cmd" /c copy fonts.conf "$PROGRAMFILES\W32TeX\share\texmf\fonts\conf\fonts.conf"' 
+  ${textreplace::ReplaceInFile} "$PROGRAMFILES\W32TeX\share\texmf\fonts\conf\fonts.conf" "$Temp\fonts.conf" "<dir>c:/windows/fonts</dir>" "$R0" "/S=1 /C=0 /AO=1" $0
+  !insertmacro Setup "copying fonts.conf" '"$Cmd" /c copy "$Temp\fonts.conf" "$PROGRAMFILES\W32TeX\share\texmf\fonts\conf\fonts.conf"' 
 
-  SetOutpath "$TEMP"
-  File Helpers\MaintainPath.exe
-  !insertmacro Setup "adding TeX binaries to the Path" '"$Cmd" /c "$Temp\MaintainPath.exe" "-myDir=$PROGRAMFILES\W32TeX\bin"'
-  Delete MaintainPath.exe
-  
-  /*
+  ${EnvVarUpdate} $0 "PATH" "P" "HKCU" "$PROGRAMFILES\W32TeX\bin"
 
-  Push "$AnkiPlugins\TeX\\"           ; turns \ into /
+  CreateDirectory "$APPDATA\.anki\plugins\TeX"
+  Push "$APPDATA\.anki\plugins\TeX\\"           ; turns \ into /
   Push "\"                          
   Call StrSlash
   Pop $R0            ;Now $R0 contains 'c:/this/and/that/filename.htm'
-  
-  ${textreplace::ReplaceInFile} "$InstDir\share\texmf\web2c\texmf.cnf" "$InstDir\share\texmf\web2c\texmf.cnf" "$$srcinp" "$R0;$$srcinp" "/S=1 /C=0 /AO=1" $0
-  */
+  ${textreplace::ReplaceInFile} "$PROGRAMFILES\W32TeX\share\texmf\web2c\texmf.cnf" "$Temp\texmf.cnf" "$$srcinp" "$R0;$$srcinp" "/S=1 /C=0 /AO=1" $0
+  !insertmacro Setup "copying texmf.cnf" '"$Cmd" /c copy "$Temp\texmf.cnf" "$PROGRAMFILES\W32TeX\share\texmf\web2c\texmf.cnf"'  
   
   Delete bzip2.exe
   Delete tar.exe
@@ -404,7 +399,8 @@ Section "Xe(La)TeX and pdf2svg" SEC03
   DetailPrint "XeTeX is working"
   DetailPrint "Updating the XeTeX font cache"
   SetDetailsPrint none
-  Exec '"$Cmd" /c start /wait /d "$Temp\" "Updating the XeTeX Font Cache" fc-cache -v'
+  ExecWait 'fc-cache -v'
+  ;Exec '"$Cmd" /c start /wait /d "$Temp\" "Updating the XeTeX Font Cache" fc-cache -v'
   SetDetailsPrint both
   
 SectionEnd

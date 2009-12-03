@@ -66,7 +66,9 @@ D) update your PATH environment variable so it finds the xetex, xelatex, gsview3
 E) Make sure xetex and xelatex know that they have to look for *.tex files in "The anki plugin folder"/TeX
 This means updating the TeXInput strings in the TeX distributon based on web2c
 
-good luck
+Good luck !
+
+Olivier Binda
 
 
 

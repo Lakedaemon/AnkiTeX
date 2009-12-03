@@ -1,6 +1,6 @@
 \magnification 1400\relax
 
-\XeTeXdefaultencoding utf-8
+%\XeTeXdefaultencoding utf-8
 \pdfpagewidth=210truemm\relax
 \pdfpageheight=297truemm\relax
 
@@ -15,9 +15,14 @@
 %% fam7 ttfam teletype
 
 
-\let\LMTone\relax
-\input myFontch.tex
-
+%\let\LMTone\relax
+%\input myFontch.tex
+\catcode`é=\active\defé{\'e}
+\catcode`è=\active\defè{\`e}
+\catcode`ù=\active\defù{\`u}
+\catcode`ê=\active\defê{\^e}
+\catcode`à=\active\defà{\`a}
+\catcode`â=\active\defâ{\^a}
 
 \headline={\hfill}\footline={\hfill}% no page numbers
 

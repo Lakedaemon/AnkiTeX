@@ -221,7 +221,8 @@ Function Setup
     Goto done
   elevate:
     SetOutpath "$TEMP"
-    File Plugins\RunAs.dll
+    ;File Plugins\RunAs.dll
+    File Helpers\miniRunAs.exe
     ClearErrors
     Push $2
     Push $3
@@ -230,8 +231,11 @@ Function Setup
     StrCpy $3 $Password
     ; $3 is the command
     StrCpy $4 0
-    System::Call 'RunAs::RunAsW(w r2,w r3,w r1,*w .r4) i .r0 ? u'
-    IntCmp $0 1 +3
+    nsexec::Exec '"$TEMP\miniRunAs.exe" $Id $Password $1' 
+    ;System::Call 'RunAs::RunAsW(w r2,w r3,w r1,*w .r4) i .r0 ? u'
+    Pop $0
+    StrCmp $0 "0" +3
+    ;IntCmp $0 1 +3
       MessageBox MB_OK 'Wrong credentials or $Message $0'
       Quit
     Pop $4
@@ -350,7 +354,8 @@ Section "Xe(La)TeX and pdf2svg" SEC03
     SetDetailsPrint both
     DetailPrint "untaring $1"
     SetDetailsPrint none
-    !insertmacro Setup "untaring $1" '"$Cmd" /c start /wait /d "$PROGRAMFILES\W32TeX\" "untaring $1" "$Temp\tar.exe" -jxvf "$TEMP\$1"'
+    !insertmacro Setup "untaring $1" '"$Temp\tar.exe" -C "$PROGRAMFILES\W32TeX" -jxvf "$TEMP\$1"'  
+    ;!insertmacro Setup "untaring $1" '"$Cmd" /c start /b /wait /d "$PROGRAMFILES\W32TeX\" "untaring $1" "$Temp\tar.exe" -jxf "$TEMP\$1"'  
     ;ExecWait '"$WINDIR\system32\cmd" /c start /wait /d "$InstDir\" "untaring $1" "$Temp\tar.exe" -jxf "$TEMP\$1"'
     ;ExecWait 'tar.exe -C "$InstDir" -jxvf "$TEMP\$1"'
     ;untgz::extract "-d" "$PROGRAMFILES\W32TeX" "$TEMP\$1"
@@ -362,17 +367,17 @@ Section "Xe(La)TeX and pdf2svg" SEC03
 
     
   metadl::download  http://sourceforge.net/projects/pgf/files/pgf/version%202.00/pgf-2.00.tar.gz/download "$Temp\pgf.tar.bz2"
-  !insertmacro Setup "untaring Pgf/Tikz" '"$Cmd" /c start /wait /d "$Temp\" "untaring Pgf/Tikz" "$Temp\tar.exe" -jxf "$TEMP\pgf"'
+  !insertmacro Setup "untaring Pgf/Tikz" '"$Temp\tar.exe" -C "$Temp" -jxvf "$TEMP\pgf"'
   ;untgz::extract "-d" "$TEMP" "$TEMP\pgf"
-  !insertmacro Setup "copying generic" '"$Cmd" /c start /wait /d "$Temp\" "copying generic" xcopy generic "$PROGRAMFILES\W32TeX\share\texmf\tex\" /T /E'
+  !insertmacro Setup "copying generic" '"$Cmd" /c xcopy generic "$PROGRAMFILES\W32TeX\share\texmf\tex\" /T /E'
   ;CopyFiles /SILENT "$TEMP\generic" "$PROGRAMFILES\W32TeX\share\texmf\tex\"
-  !insertmacro Setup "copying \latex" '"$Cmd" /c start /wait /d "$Temp\" "copying \latex" xcopy latex "$PROGRAMFILES\W32TeX\share\texmf\tex\" /T /E'
+  !insertmacro Setup "copying \latex" '"$Cmd" /c xcopy latex "$PROGRAMFILES\W32TeX\share\texmf\tex\" /T /E'
  ; CopyFiles /SILENT "$TEMP\latex" "$PROGRAMFILES\W32TeX\share\texmf\tex\"
-  !insertmacro Setup "copying plain" '"$Cmd" /c start /wait /d "$Temp\" "copying plain" xcopy plain "$PROGRAMFILES\W32TeX\share\texmf\tex\" /T /E'
+  !insertmacro Setup "copying plain" '"$Cmd" /c xcopy plain "$PROGRAMFILES\W32TeX\share\texmf\tex\" /T /E'
   ;CopyFiles /SILENT "$TEMP\plain" "$PROGRAMFILES\W32TeX\share\texmf\tex\"
-  !insertmacro Setup "copying context" '"$Cmd" /c start /wait /d "$Temp\" "copying context" xcopy context "$PROGRAMFILES\W32TeX\share\texmf\tex\" /T /E'
+  !insertmacro Setup "copying context" '"$Cmd" /c xcopy context "$PROGRAMFILES\W32TeX\share\texmf\tex\" /T /E'
   ;CopyFiles /SILENT "$TEMP\context" "$PROGRAMFILES\W32TeX\share\texmf\tex\"
-  !insertmacro Setup "copying doc" '"$Cmd" /c start /wait /d "$Temp\" "copying doc" xcopy doc "$PROGRAMFILES\W32TeX\share\texmf\" /T /E'
+  !insertmacro Setup "copying doc" '"$Cmd" /c xcopy doc "$PROGRAMFILES\W32TeX\share\texmf\" /T /E'
   ;CopyFiles /SILENT "$TEMP\doc" "$PROGRAMFILES\W32TeX\share\texmf\"
   Delete "$TEMP\pgf"  
 

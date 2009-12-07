@@ -85,8 +85,8 @@ def texWrap(latex):
 latex.regexps= regexps
 call = latex.call
 
-tmpdir = "F:\\Temp\\TeX\\"
-#tmpdir = tempfile.mkdtemp(prefix="anki")
+#tmpdir = "F:\\Temp\\TeX\\"
+tmpdir = tempfile.mkdtemp(prefix="anki")
 
 from ankiqt import mw
 from anki.sound import  stripSounds
